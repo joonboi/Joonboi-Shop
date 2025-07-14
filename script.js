@@ -110,7 +110,7 @@ document.getElementById('request-form').addEventListener('submit', async functio
 
       div.innerHTML = `
         <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
-        <img src="${posterUrl}" alt="Poster" style="max-width: 120px; margin-bottom: 8px;">
+        <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
         <p>${item.overview || 'No description available.'}</p>
       `;
       div.appendChild(btn);
