@@ -85,3 +85,19 @@ button:hover {
   margin-bottom: 10px;
   border-radius: 5px;
 }
+
+/* Spinner animation for loading state */
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #2ecc71; /* Matches your green theme */
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto; /* Center horizontally with margin */
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
