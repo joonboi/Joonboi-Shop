@@ -72,6 +72,11 @@ async function searchMedia(type, tag, title, year) {
 document.getElementById('request-form').addEventListener('submit', async function (e) {
   e.preventDefault();
 
+  if (!API_BASE) {
+    resultsDiv.innerHTML = `<p style="color: #e74c3c;">API not loaded yet. Try again in a moment.</p>`;
+    return;
+  }
+
   const type = document.querySelector('input[name="mediaType"]:checked').value;
   const tag = tagSelect.value;
   const title = document.getElementById('title').value.trim();
@@ -106,12 +111,13 @@ document.getElementById('request-form').addEventListener('submit', async functio
   }
 });
 
-// Fetch config on page load
+// Load config before anything else
 async function loadConfig() {
   try {
     const response = await fetch('config.json');
     const config = await response.json();
-    API_BASE = config.API_BASE;
+    API_BASE = config.apiUrl;
+    console.log("Loaded API URL:", API_BASE);
   } catch (err) {
     resultsDiv.innerHTML = `<p style="color: #e74c3c;">Failed to load configuration.</p>`;
     throw err;
