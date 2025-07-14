@@ -4,6 +4,8 @@ const tagSelect = document.getElementById('tag');
 const mediaRadios = document.querySelectorAll('input[name="mediaType"]');
 const resultsDiv = document.getElementById('results');
 const messageDiv = document.getElementById('message');
+const form = document.getElementById('request-form');
+const submitBtn = form.querySelector('button[type="submit"]');
 
 const tagOptions = {
   movie: [
@@ -69,11 +71,22 @@ async function searchMedia(type, tag, title, year) {
   return await response.json();
 }
 
-document.getElementById('request-form').addEventListener('submit', async function (e) {
+form.addEventListener('submit', async function (e) {
   e.preventDefault();
+
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Searching...";
+
+  resultsDiv.innerHTML = `
+    <p>Searching, please wait...</p>
+    <div class="spinner" style="margin: 10px auto;"></div>
+  `;
 
   if (!API_BASE) {
     resultsDiv.innerHTML = `<p style="color: #e74c3c;">API not loaded yet. Try again in a moment.</p>`;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
     return;
   }
 
@@ -84,6 +97,8 @@ document.getElementById('request-form').addEventListener('submit', async functio
 
   if (!type || !tag || !title || !year) {
     resultsDiv.innerHTML = `<p style="color: #e74c3c;">Please fill out all fields.</p>`;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
     return;
   }
 
@@ -91,35 +106,34 @@ document.getElementById('request-form').addEventListener('submit', async functio
     const results = await searchMedia(type, tag, title, year);
     if (results.length === 0) {
       resultsDiv.innerHTML = `<p>No results found for "${title} (${year})"</p>`;
-      return;
+    } else {
+      resultsDiv.innerHTML = '<h2>Select a Match</h2>';
+
+      results.slice(0, 5).forEach(item => {
+        const div = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.textContent = 'Add This';
+        btn.addEventListener('click', () => addMediaItem(item, type, tag, year));
+
+        const posterUrl = (item.images && item.images.length > 0)
+          ? item.images.find(img => img.coverType === "poster")?.remoteUrl || item.images[0].remoteUrl
+          : 'https://via.placeholder.com/120x180?text=No+Image';
+
+        div.innerHTML = `
+          <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
+          <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
+          <p>${item.overview || 'No description available.'}</p>
+        `;
+        div.appendChild(btn);
+        resultsDiv.appendChild(div);
+      });
     }
-
-    resultsDiv.innerHTML = '<h2>Select a Match</h2>';
-
-    // Only show top 5 results with poster and description
-    results.slice(0, 5).forEach(item => {
-      const div = document.createElement('div');
-      const btn = document.createElement('button');
-      btn.textContent = 'Add This';
-      btn.addEventListener('click', () => addMediaItem(item, type, tag, year));
-
-      // Pick poster image or fallback to placeholder
-      const posterUrl = (item.images && item.images.length > 0) 
-        ? item.images[0].remoteUrl 
-        : 'https://via.placeholder.com/120x180?text=No+Image';
-
-      div.innerHTML = `
-        <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
-        <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
-        <p>${item.overview || 'No description available.'}</p>
-      `;
-      div.appendChild(btn);
-      resultsDiv.appendChild(div);
-    });
-
   } catch (err) {
     resultsDiv.innerHTML = `<p style="color: #e74c3c;">Error: ${err.message}</p>`;
   }
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
 });
 
 // Load config before anything else
