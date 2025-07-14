@@ -95,13 +95,24 @@ document.getElementById('request-form').addEventListener('submit', async functio
     }
 
     resultsDiv.innerHTML = '<h2>Select a Match</h2>';
-    results.forEach(item => {
+
+    // Only show top 5 results with poster and description
+    results.slice(0, 5).forEach(item => {
       const div = document.createElement('div');
       const btn = document.createElement('button');
       btn.textContent = 'Add This';
       btn.addEventListener('click', () => addMediaItem(item, type, tag, year));
 
-      div.innerHTML = `<p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>`;
+      // Pick poster image or fallback to placeholder
+      const posterUrl = (item.images && item.images.length > 0) 
+        ? item.images[0].remoteUrl 
+        : 'https://via.placeholder.com/120x180?text=No+Image';
+
+      div.innerHTML = `
+        <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
+        <img src="${posterUrl}" alt="Poster" style="max-width: 120px; margin-bottom: 8px;">
+        <p>${item.overview || 'No description available.'}</p>
+      `;
       div.appendChild(btn);
       resultsDiv.appendChild(div);
     });
