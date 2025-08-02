@@ -1,11 +1,10 @@
 const CACHE_NAME = 'joonboi-plex-cache-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  // Add any other assets you want cached here
+  '/joonboi-plex-requester/',
+  '/joonboi-plex-requester/index.html',
+  '/joonboi-plex-requester/manifest.json',
+  '/joonboi-plex-requester/icons/icon-192.png',
+  '/joonboi-plex-requester/icons/icon-512.png',
 ];
 
 self.addEventListener('install', event => {
