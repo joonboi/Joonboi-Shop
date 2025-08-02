@@ -152,3 +152,29 @@ async function loadConfig() {
 window.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
 });
+
+// Admin Login with backend verification
+async function adminLoginPrompt() {
+  const password = prompt("Enter admin password:");
+  if (!password) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/admin-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      alert("Welcome admin! Admin features unlocked.");
+      // Reveal admin-only section (make sure your HTML has id="admin-controls")
+      document.getElementById("admin-controls")?.classList.remove("hidden");
+    } else {
+      alert("Incorrect password.");
+    }
+  } catch (err) {
+    alert("Login failed: " + err.message);
+  }
+}
