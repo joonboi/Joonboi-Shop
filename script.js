@@ -178,4 +178,72 @@ async function adminLoginPrompt() {
     alert("Login failed: " + err.message);
   }
 }
+async function adminLoginPrompt() {
+  // Show modal
+  const modal = document.getElementById("passwordModal");
+  const input = document.getElementById("adminPassword");
+  const submitBtn = document.getElementById("passwordSubmit");
+  const cancelBtn = document.getElementById("passwordCancel");
 
+  modal.classList.remove("hidden");
+  input.value = "";
+  input.focus();
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      modal.classList.add("hidden");
+      submitBtn.removeEventListener("click", onSubmit);
+      cancelBtn.removeEventListener("click", onCancel);
+    };
+
+    const onSubmit = async () => {
+      const password = input.value;
+      cleanup();
+
+      if (!password) {
+        resolve(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          alert("Welcome admin! Admin features unlocked.");
+          document.getElementById("admin-controls")?.classList.remove("hidden");
+          resolve(true);
+        } else {
+          alert("Incorrect password.");
+          resolve(false);
+        }
+      } catch (err) {
+        alert("Login failed: " + err.message);
+        resolve(false);
+      }
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    submitBtn.addEventListener("click", onSubmit);
+    cancelBtn.addEventListener("click", onCancel);
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onSubmit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
+    });
+  });
+}
