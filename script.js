@@ -292,4 +292,7 @@ async function adminLoginPrompt() {
 
 // Exit Admin Mode function
 function exitAdminMode() {
-  isAdmin
+  isAdmin = false;
+  hideAdminElements();
+  alert("Exited admin mode.");
+}
