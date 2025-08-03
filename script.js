@@ -1,16 +1,5 @@
 let API_BASE = ""; // Will be loaded from config.json
 
-const tagSelect = document.getElementById('tag');
-const mediaRadios = document.querySelectorAll('input[name="mediaType"]');
-const resultsDiv = document.getElementById('results');
-const messageDiv = document.getElementById('message');
-const form = document.getElementById('request-form');
-const submitBtn = form.querySelector('button[type="submit"]');
-
-const xMovieRadio = document.getElementById('xmovie-radio');
-const d3CheckboxContainer = document.getElementById('3d-container');
-let isAdmin = false;
-
 const tagOptions = {
   movie: [
     { value: "movies", label: "Movies - Regular films" },
@@ -28,9 +17,11 @@ const tagOptions = {
   ]
 };
 
+let isAdmin = false;
+
 function updateTagOptions() {
   let selected = document.querySelector('input[name="mediaType"]:checked').value;
-  // For xmovie (admin only), we can decide what tags to show or keep empty
+  const tagSelect = document.getElementById('tag');
   if (selected === 'xmovie') {
     tagSelect.innerHTML = '<option value="">-- Choose a tag --</option>';
   } else {
@@ -46,25 +37,32 @@ function updateTagOptions() {
 
 function showAdminElements() {
   isAdmin = true;
+  const xMovieRadio = document.getElementById('xmovie-radio');
   xMovieRadio?.classList.remove('hidden');
   document.getElementById("admin-section")?.classList.remove("hidden");
 }
 
 function hideAdminElements() {
   isAdmin = false;
+  const xMovieRadio = document.getElementById('xmovie-radio');
+  const d3CheckboxContainer = document.getElementById('3d-container');
+  const adminSection = document.getElementById("admin-section");
+  const d3Checkbox = document.getElementById('is3D');
+  const movieRadio = document.querySelector('input[name="mediaType"][value="movie"]');
+  const tagSelect = document.getElementById('tag');
+
   xMovieRadio?.classList.add('hidden');
   d3CheckboxContainer?.classList.add('hidden');
-  document.getElementById("admin-section")?.classList.add("hidden");
-  // Uncheck 3D checkbox when hiding
-  const d3Checkbox = document.getElementById('is3D');
+  adminSection?.classList.add("hidden");
+
   if (d3Checkbox) d3Checkbox.checked = false;
-  // Reset mediaType radio to default (movie)
-  const movieRadio = document.querySelector('input[name="mediaType"][value="movie"]');
   if (movieRadio) movieRadio.checked = true;
   updateTagOptions();
 }
 
 function update3DVisibility() {
+  const d3CheckboxContainer = document.getElementById('3d-container');
+  const tagSelect = document.getElementById('tag');
   const type = document.querySelector('input[name="mediaType"]:checked').value;
   const tag = tagSelect.value;
   if (isAdmin && type === 'movie' && tag === 'movies') {
@@ -76,18 +74,10 @@ function update3DVisibility() {
   }
 }
 
-mediaRadios.forEach(radio => {
-  radio.addEventListener('change', () => {
-    updateTagOptions();
-    update3DVisibility();
-  });
-});
-
-tagSelect.addEventListener('change', update3DVisibility);
-
-updateTagOptions();
-
 async function addMediaItem(item, type, tag, year, is3D = false) {
+  const messageDiv = document.getElementById('message');
+  const resultsDiv = document.getElementById('results');
+
   messageDiv.textContent = "";
   resultsDiv.innerHTML = `<p>Adding "${item.title}"... Please wait.</p>`;
 
@@ -120,74 +110,97 @@ async function searchMedia(type, tag, title, year, is3D = false) {
   return await response.json();
 }
 
-form.addEventListener('submit', async function (e) {
-  e.preventDefault();
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
 
-  const originalText = submitBtn.textContent;
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Searching...";
+  const tagSelect = document.getElementById('tag');
+  const mediaRadios = document.querySelectorAll('input[name="mediaType"]');
+  const resultsDiv = document.getElementById('results');
+  const messageDiv = document.getElementById('message');
+  const form = document.getElementById('request-form');
+  const submitBtn = form.querySelector('button[type="submit"]');
 
-  resultsDiv.innerHTML = `
-    <p>Searching, please wait...</p>
-    <div class="spinner" style="margin: 10px auto;"></div>
-  `;
+  updateTagOptions();
+  update3DVisibility();
 
-  if (!API_BASE) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">API not loaded yet. Try again in a moment.</p>`;
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
-    return;
-  }
+  mediaRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      updateTagOptions();
+      update3DVisibility();
+    });
+  });
 
-  const type = document.querySelector('input[name="mediaType"]:checked').value;
-  const tag = tagSelect.value;
-  const title = document.getElementById('title').value.trim();
-  const year = document.getElementById('year').value.trim();
+  tagSelect.addEventListener('change', update3DVisibility);
 
-  if (!type || !tag || !title || !year) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Please fill out all fields.</p>`;
-    submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
-    return;
-  }
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
 
-  // Check if 3D checkbox is checked (only relevant if admin)
-  const is3DChecked = (isAdmin && type === 'movie' && tag === 'movies') 
-    ? document.getElementById('is3D').checked
-    : false;
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Searching...";
 
-  try {
-    const results = await searchMedia(type, tag, title, year, is3DChecked);
-    if (results.length === 0) {
-      resultsDiv.innerHTML = `<p>No results found for "${title} (${year})"</p>`;
-    } else {
-      resultsDiv.innerHTML = '<h2>Select a Match</h2>';
+    resultsDiv.innerHTML = `
+      <p>Searching, please wait...</p>
+      <div class="spinner" style="margin: 10px auto;"></div>
+    `;
 
-      results.slice(0, 5).forEach(item => {
-        const div = document.createElement('div');
-        const btn = document.createElement('button');
-        btn.textContent = 'Add This';
-        btn.addEventListener('click', () => addMediaItem(item, type, tag, year, is3DChecked));
-
-        const posterUrl = (item.images && item.images.length > 0)
-          ? item.images.find(img => img.coverType === "poster")?.remoteUrl || item.images[0].remoteUrl
-          : 'https://via.placeholder.com/120x180?text=No+Image';
-
-        div.innerHTML = `
-          <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
-          <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
-          <p>${item.overview || 'No description available.'}</p>
-        `;
-        div.appendChild(btn);
-        resultsDiv.appendChild(div);
-      });
+    if (!API_BASE) {
+      resultsDiv.innerHTML = `<p style="color: #e74c3c;">API not loaded yet. Try again in a moment.</p>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      return;
     }
-  } catch (err) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Error: ${err.message}</p>`;
-  }
 
-  submitBtn.disabled = false;
-  submitBtn.textContent = originalText;
+    const type = document.querySelector('input[name="mediaType"]:checked').value;
+    const tag = tagSelect.value;
+    const title = document.getElementById('title').value.trim();
+    const year = document.getElementById('year').value.trim();
+
+    if (!type || !tag || !title || !year) {
+      resultsDiv.innerHTML = `<p style="color: #e74c3c;">Please fill out all fields.</p>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      return;
+    }
+
+    // Check if 3D checkbox is checked (only relevant if admin)
+    const is3DChecked = (isAdmin && type === 'movie' && tag === 'movies') 
+      ? document.getElementById('is3D').checked
+      : false;
+
+    try {
+      const results = await searchMedia(type, tag, title, year, is3DChecked);
+      if (results.length === 0) {
+        resultsDiv.innerHTML = `<p>No results found for "${title} (${year})"</p>`;
+      } else {
+        resultsDiv.innerHTML = '<h2>Select a Match</h2>';
+
+        results.slice(0, 5).forEach(item => {
+          const div = document.createElement('div');
+          const btn = document.createElement('button');
+          btn.textContent = 'Add This';
+          btn.addEventListener('click', () => addMediaItem(item, type, tag, year, is3DChecked));
+
+          const posterUrl = (item.images && item.images.length > 0)
+            ? item.images.find(img => img.coverType === "poster")?.remoteUrl || item.images[0].remoteUrl
+            : 'https://via.placeholder.com/120x180?text=No+Image';
+
+          div.innerHTML = `
+            <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
+            <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
+            <p>${item.overview || 'No description available.'}</p>
+          `;
+          div.appendChild(btn);
+          resultsDiv.appendChild(div);
+        });
+      }
+    } catch (err) {
+      resultsDiv.innerHTML = `<p style="color: #e74c3c;">Error: ${err.message}</p>`;
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+  });
 });
 
 // Load config before anything else
@@ -198,14 +211,11 @@ async function loadConfig() {
     API_BASE = config.apiUrl;
     console.log("Loaded API URL:", API_BASE);
   } catch (err) {
+    const resultsDiv = document.getElementById('results');
     resultsDiv.innerHTML = `<p style="color: #e74c3c;">Failed to load configuration.</p>`;
     throw err;
   }
 }
-
-window.addEventListener('DOMContentLoaded', async () => {
-  await loadConfig();
-});
 
 // Admin Login with modal + backend check
 async function adminLoginPrompt() {
