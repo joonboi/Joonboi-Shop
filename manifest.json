@@ -1,6 +1,6 @@
 {
   "name": "Joonboi Plex Requester",
-  "short_name": "PlexReq",
+  "short_name": "Plex Requester",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
