@@ -1,96 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Joonboi Plex Requester</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Joonboi Plex Requester</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1DB954"/>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(reg => console.log('Service Worker registered', reg))
+          .catch(err => console.error('Service Worker registration failed', err));
+      });
+    }
+  </script>
 </head>
 <body>
   <div class="container">
-    <h1>Joonboi Plex Requester</h1>
-
-    <!-- Media Type Selector -->
-    <label for="mediaType">Media Type:</label>
-    <select id="mediaType" name="mediaType">
-      <option value="movie" selected>Movie</option>
-      <option value="tv">TV Show</option>
-    </select>
-
-    <!-- Tag Selector -->
-    <label for="tag">Tag:</label>
-    <select id="tag" name="tag">
-      <option value="movies" selected>Movies</option>
-      <option value="anime">Anime</option>
-      <option value="bootleg">Bootleg</option>
-      <option value="live">Live</option>
-      <option value="kids">Kids</option>
-      <option value="tv">TV</option>
-    </select>
-
-    <!-- Admin Login Form -->
-    <div id="admin-login-container" style="margin: 1em 0;">
-      <input
-        type="password"
-        id="admin-password"
-        placeholder="Enter admin password"
-        autocomplete="current-password"
-      />
-      <button type="button" onclick="loginAdmin()">Login as Admin</button>
-    </div>
-
-    <!-- Admin-only controls (hidden by default) -->
-    <div id="admin-controls" style="display: none; margin-top: 1em;">
-      <!-- 3D Available Checkbox (only for Movie + Movies tag) -->
-      <div id="checkbox-3d-available" style="display: none; margin-bottom: 0.5em;">
-        <input type="checkbox" id="is3DAvailable" />
-        <label for="is3DAvailable">Is 3D Available?</label>
-      </div>
-
-      <!-- X-Movie radio button for Whisparr-v3 -->
-      <div style="margin-bottom: 0.5em;">
-        <input
-          type="radio"
-          name="mediaSource"
-          id="defaultSource"
-          value="default"
-          checked
-        />
-        <label for="defaultSource">Default</label>
-        <br />
-        <input
-          type="radio"
-          name="mediaSource"
-          id="xmovie"
-          value="whisparr-v3"
-        />
-        <label for="xmovie">X-Movie (Whisparr-v3)</label>
-      </div>
-
-      <!-- Exit Admin Mode Button -->
-      <button type="button" onclick="exitAdminMode()">Exit Admin Mode</button>
-    </div>
-
-    <!-- Title input -->
-    <label for="title">Title:</label>
-    <input type="text" id="title" name="title" placeholder="Enter title" />
-
-    <!-- Year input -->
-    <label for="year">Year:</label>
-    <input
-      type="number"
-      id="year"
-      name="year"
-      placeholder="Enter year"
-      min="1900"
-      max="2100"
+    <img
+      src="https://cdn1.iconfinder.com/data/icons/roundettes-for-os-x-vol-vi/512/Plex-01-1024.png"
+      alt="Joonboi Plex Requester"
+      id="logo"
+      class="logo"
+      style="cursor:pointer;"
+      onclick="adminLoginPrompt()"
     />
 
-    <br /><br />
-    <button type="button" onclick="performSearch()">Search</button>
+    <h1>Joonboi Plex Requester</h1>
+
+    <form id="request-form">
+      <div class="radio-group">
+        <label><input type="radio" name="mediaType" value="movie" checked> Movie</label>
+        <label><input type="radio" name="mediaType" value="tv"> TV Show</label>
+      </div>
+
+      <label for="tag">Select Tag:</label>
+      <select id="tag" required>
+        <option value="">-- Choose a tag --</option>
+      </select>
+
+      <label for="title">Title:</label>
+      <input type="text" id="title" placeholder="e.g. Absolute Power" required />
+
+      <label for="year">Year:</label>
+      <input type="number" id="year" placeholder="e.g. 1997" required />
+
+      <button type="submit">Search</button>
+    </form>
 
     <div id="results"></div>
+    <div id="message" style="margin-top:10px; color: #2ecc71; font-weight: bold;"></div>
+
+    <!-- 🔐 Admin Mode Section -->
+    <div id="admin-section" class="hidden" style="margin-top: 30px; border-top: 1px solid #444; padding-top: 20px;">
+      <h2>Admin Mode</h2>
+      <p>You are now in admin mode. More tools coming soon...</p>
+      <button onclick="exitAdminMode()">Exit Admin Mode</button>
+    </div>
   </div>
+
+  <!-- 🔐 Password Modal -->
+  <div id="passwordModal" class="modal hidden">
+    <div class="modal-content">
+      <label for="adminPassword">Enter admin password:</label>
+      <input type="password" id="adminPassword" autocomplete="off" />
+      <div class="modal-buttons">
+        <button id="passwordSubmit">Submit</button>
+        <button id="passwordCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function adminLoginPrompt() {
+      document.getElementById("passwordModal").classList.remove("hidden");
+      document.getElementById("adminPassword").value = '';
+    }
+
+    function exitAdminMode() {
+      document.getElementById("admin-section").classList.add("hidden");
+      alert("Exited admin mode.");
+    }
+
+    document.getElementById("passwordSubmit").addEventListener("click", async () => {
+      const password = document.getElementById("adminPassword").value;
+      if (!password) return;
+
+      try {
+        const response = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+
+        if (response.ok) {
+          document.getElementById("passwordModal").classList.add("hidden");
+          document.getElementById("admin-section").classList.remove("hidden");
+        } else {
+          alert("Incorrect password.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Failed to verify password.");
+      }
+    });
+
+    document.getElementById("passwordCancel").addEventListener("click", () => {
+      document.getElementById("passwordModal").classList.add("hidden");
+    });
+  </script>
 
   <script src="script.js"></script>
 </body>
