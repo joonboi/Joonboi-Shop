@@ -35,6 +35,16 @@
         <label><input type="radio" name="mediaType" value="movie" checked> Movie</label>
         <label><input type="radio" name="mediaType" value="tv"> TV Show</label>
       </div>
+<!-- Admin-only: X-Movie -->
+<div id="xmovie-radio" class="hidden">
+  <label><input type="radio" name="mediaType" value="xmovie"> X-Movie</label>
+</div>
+
+<!-- 3D Checkbox (only shown if mediaType=movie & tag=movies) -->
+<div id="3d-container" class="hidden">
+  <label><input type="checkbox" id="is3D"> Is 3D Available?</label>
+</div>
+
 
       <label for="tag">Select Tag:</label>
       <select id="tag" required>
@@ -115,3 +125,4 @@
   <script src="script.js"></script>
 </body>
 </html>
+
