@@ -7,6 +7,10 @@ const messageDiv = document.getElementById('message');
 const form = document.getElementById('request-form');
 const submitBtn = form.querySelector('button[type="submit"]');
 
+const xMovieRadio = document.getElementById('xmovie-radio');
+const d3CheckboxContainer = document.getElementById('3d-container');
+let isAdmin = false;
+
 const tagOptions = {
   movie: [
     { value: "movies", label: "Movies - Regular films" },
@@ -18,27 +22,72 @@ const tagOptions = {
     { value: "tv", label: "TV - Series" },
     { value: "anime", label: "Anime - Japanese animation" },
     { value: "kids", label: "Kids - Family or educational" }
+  ],
+  xmovie: [
+    // You can add tags if needed for xmovie later
   ]
 };
 
 function updateTagOptions() {
-  const selected = document.querySelector('input[name="mediaType"]:checked').value;
-  tagSelect.innerHTML = '<option value="">-- Choose a tag --</option>';
-  tagOptions[selected].forEach(tag => {
-    const option = document.createElement('option');
-    option.value = tag.value;
-    option.textContent = tag.label;
-    tagSelect.appendChild(option);
-  });
+  let selected = document.querySelector('input[name="mediaType"]:checked').value;
+  // For xmovie (admin only), we can decide what tags to show or keep empty
+  if (selected === 'xmovie') {
+    tagSelect.innerHTML = '<option value="">-- Choose a tag --</option>';
+  } else {
+    tagSelect.innerHTML = '<option value="">-- Choose a tag --</option>';
+    tagOptions[selected]?.forEach(tag => {
+      const option = document.createElement('option');
+      option.value = tag.value;
+      option.textContent = tag.label;
+      tagSelect.appendChild(option);
+    });
+  }
+}
+
+function showAdminElements() {
+  isAdmin = true;
+  xMovieRadio?.classList.remove('hidden');
+  document.getElementById("admin-section")?.classList.remove("hidden");
+}
+
+function hideAdminElements() {
+  isAdmin = false;
+  xMovieRadio?.classList.add('hidden');
+  d3CheckboxContainer?.classList.add('hidden');
+  document.getElementById("admin-section")?.classList.add("hidden");
+  // Uncheck 3D checkbox when hiding
+  const d3Checkbox = document.getElementById('is3D');
+  if (d3Checkbox) d3Checkbox.checked = false;
+  // Reset mediaType radio to default (movie)
+  const movieRadio = document.querySelector('input[name="mediaType"][value="movie"]');
+  if (movieRadio) movieRadio.checked = true;
+  updateTagOptions();
+}
+
+function update3DVisibility() {
+  const type = document.querySelector('input[name="mediaType"]:checked').value;
+  const tag = tagSelect.value;
+  if (isAdmin && type === 'movie' && tag === 'movies') {
+    d3CheckboxContainer.classList.remove('hidden');
+  } else {
+    d3CheckboxContainer.classList.add('hidden');
+    const d3Checkbox = document.getElementById('is3D');
+    if (d3Checkbox) d3Checkbox.checked = false;
+  }
 }
 
 mediaRadios.forEach(radio => {
-  radio.addEventListener('change', updateTagOptions);
+  radio.addEventListener('change', () => {
+    updateTagOptions();
+    update3DVisibility();
+  });
 });
+
+tagSelect.addEventListener('change', update3DVisibility);
 
 updateTagOptions();
 
-async function addMediaItem(item, type, tag, year) {
+async function addMediaItem(item, type, tag, year, is3D = false) {
   messageDiv.textContent = "";
   resultsDiv.innerHTML = `<p>Adding "${item.title}"... Please wait.</p>`;
 
@@ -46,7 +95,7 @@ async function addMediaItem(item, type, tag, year) {
     const response = await fetch(`${API_BASE}/api/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mediaType: type, tag: tag, item: item })
+      body: JSON.stringify({ mediaType: type, tag: tag, item: item, is3D })
     });
 
     const data = await response.json();
@@ -61,11 +110,11 @@ async function addMediaItem(item, type, tag, year) {
   }
 }
 
-async function searchMedia(type, tag, title, year) {
+async function searchMedia(type, tag, title, year, is3D = false) {
   const response = await fetch(`${API_BASE}/api/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mediaType: type, tag: tag, title: title, year: parseInt(year) })
+    body: JSON.stringify({ mediaType: type, tag: tag, title: title, year: parseInt(year), is3D })
   });
   if (!response.ok) throw new Error('Search failed');
   return await response.json();
@@ -102,8 +151,13 @@ form.addEventListener('submit', async function (e) {
     return;
   }
 
+  // Check if 3D checkbox is checked (only relevant if admin)
+  const is3DChecked = (isAdmin && type === 'movie' && tag === 'movies') 
+    ? document.getElementById('is3D').checked
+    : false;
+
   try {
-    const results = await searchMedia(type, tag, title, year);
+    const results = await searchMedia(type, tag, title, year, is3DChecked);
     if (results.length === 0) {
       resultsDiv.innerHTML = `<p>No results found for "${title} (${year})"</p>`;
     } else {
@@ -113,7 +167,7 @@ form.addEventListener('submit', async function (e) {
         const div = document.createElement('div');
         const btn = document.createElement('button');
         btn.textContent = 'Add This';
-        btn.addEventListener('click', () => addMediaItem(item, type, tag, year));
+        btn.addEventListener('click', () => addMediaItem(item, type, tag, year, is3DChecked));
 
         const posterUrl = (item.images && item.images.length > 0)
           ? item.images.find(img => img.coverType === "poster")?.remoteUrl || item.images[0].remoteUrl
@@ -157,7 +211,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function adminLoginPrompt() {
   const modal = document.getElementById("passwordModal");
   const input = document.getElementById("adminPassword");
-  const submitBtn = document.getElementById("passwordSubmit");
+  const submitBtnModal = document.getElementById("passwordSubmit");
   const cancelBtn = document.getElementById("passwordCancel");
 
   modal.classList.remove("hidden");
@@ -167,7 +221,7 @@ async function adminLoginPrompt() {
   return new Promise((resolve) => {
     const cleanup = () => {
       modal.classList.add("hidden");
-      submitBtn.removeEventListener("click", onSubmit);
+      submitBtnModal.removeEventListener("click", onSubmit);
       cancelBtn.removeEventListener("click", onCancel);
     };
 
@@ -191,7 +245,8 @@ async function adminLoginPrompt() {
 
         if (response.ok && data.success) {
           alert("Welcome admin! Admin features unlocked.");
-          document.getElementById("admin-controls")?.classList.remove("hidden");
+          showAdminElements();
+          update3DVisibility();
           resolve(true);
         } else {
           alert("Incorrect password.");
@@ -208,7 +263,7 @@ async function adminLoginPrompt() {
       resolve(false);
     };
 
-    submitBtn.addEventListener("click", onSubmit);
+    submitBtnModal.addEventListener("click", onSubmit);
     cancelBtn.addEventListener("click", onCancel);
 
     input.addEventListener("keydown", (e) => {
@@ -221,4 +276,11 @@ async function adminLoginPrompt() {
       }
     });
   });
+}
+
+// Exit Admin Mode function
+function exitAdminMode() {
+  isAdmin = false;
+  hideAdminElements();
+  alert("Exited admin mode.");
 }
