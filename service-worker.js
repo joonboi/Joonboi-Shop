@@ -6,6 +6,7 @@ const urlsToCache = [
   '/joonboi-plex-requester/script.js',
   '/joonboi-plex-requester/index.html',
   '/joonboi-plex-requester/manifest.json',
+  '/joonboi-plex-requester/icons/favicon.png',
   '/joonboi-plex-requester/icons/icon-192.png',
   '/joonboi-plex-requester/icons/icon-512.png',
 ];
