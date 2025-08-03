@@ -1,172 +1,224 @@
 let API_BASE = ""; // Will be loaded from config.json
 
-let isAdmin = false;
+const tagSelect = document.getElementById('tag');
+const mediaRadios = document.querySelectorAll('input[name="mediaType"]');
+const resultsDiv = document.getElementById('results');
+const messageDiv = document.getElementById('message');
+const form = document.getElementById('request-form');
+const submitBtn = form.querySelector('button[type="submit"]');
 
-// Utility functions to get selected mediaType and tag
-function getSelectedMediaType() {
-  const mediaTypeSelect = document.getElementById("mediaType");
-  return mediaTypeSelect ? mediaTypeSelect.value : "";
+const tagOptions = {
+  movie: [
+    { value: "movies", label: "Movies - Regular films" },
+    { value: "bootleg", label: "Bootleg - In theaters or unreleased" },
+    { value: "live", label: "Live - Concerts, stand-up, etc." },
+    { value: "anime", label: "Anime - Japanese animation" }
+  ],
+  tv: [
+    { value: "tv", label: "TV - Series" },
+    { value: "anime", label: "Anime - Japanese animation" },
+    { value: "kids", label: "Kids - Family or educational" }
+  ]
+};
+
+function updateTagOptions() {
+  const selected = document.querySelector('input[name="mediaType"]:checked').value;
+  tagSelect.innerHTML = '<option value="">-- Choose a tag --</option>';
+  tagOptions[selected].forEach(tag => {
+    const option = document.createElement('option');
+    option.value = tag.value;
+    option.textContent = tag.label;
+    tagSelect.appendChild(option);
+  });
 }
 
-function getSelectedTag() {
-  const tagSelect = document.getElementById("tag");
-  return tagSelect ? tagSelect.value : "";
-}
+mediaRadios.forEach(radio => {
+  radio.addEventListener('change', updateTagOptions);
+});
 
-// Show/hide 3D checkbox depending on conditions
-function update3DAvailableVisibility(mediaType, tag) {
-  const checkbox3D = document.getElementById("checkbox-3d-available");
-  if (isAdmin && mediaType.toLowerCase() === "movie" && tag.toLowerCase() === "movies") {
-    checkbox3D.style.display = "block";
-  } else {
-    checkbox3D.style.display = "none";
-    document.getElementById("is3DAvailable").checked = false;
-  }
-}
+updateTagOptions();
 
-// Show admin UI elements and hide admin login
-function showAdminUI() {
-  document.getElementById("admin-controls").style.display = "block";
-  document.getElementById("admin-login-container").style.display = "none";
-}
-
-// Hide admin UI elements and show admin login
-function hideAdminUI() {
-  document.getElementById("admin-controls").style.display = "none";
-  document.getElementById("checkbox-3d-available").style.display = "none";
-  document.getElementById("admin-login-container").style.display = "block";
-}
-
-// Admin login function
-async function loginAdmin() {
-  const passwordInput = document.getElementById("admin-password");
-  const password = passwordInput.value.trim();
-  if (!password) {
-    alert("Please enter admin password");
-    return;
-  }
+async function addMediaItem(item, type, tag, year) {
+  messageDiv.textContent = "";
+  resultsDiv.innerHTML = `<p>Adding "${item.title}"... Please wait.</p>`;
 
   try {
-    const response = await fetch(`${API_BASE}/api/admin/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+    const response = await fetch(`${API_BASE}/api/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mediaType: type, tag: tag, item: item })
     });
-
-    if (!response.ok) {
-      alert("Server error during login");
-      return;
-    }
 
     const data = await response.json();
-    if (data.success) {
-      isAdmin = true;
-      showAdminUI();
-      alert("Admin mode activated");
-      passwordInput.value = "";
-      update3DAvailableVisibility(getSelectedMediaType(), getSelectedTag());
+
+    if (response.ok) {
+      resultsDiv.innerHTML = `<p style="color: #2ecc71; font-weight: bold;">${data.message}</p>`;
     } else {
-      alert("Incorrect password");
+      resultsDiv.innerHTML = `<p style="color: #e74c3c; font-weight: bold;">Error: ${data.message || 'Failed to add item.'}</p>`;
     }
-  } catch (error) {
-    alert("Failed to contact server");
-    console.error(error);
+  } catch (err) {
+    resultsDiv.innerHTML = `<p style="color: #e74c3c; font-weight: bold;">Error: ${err.message}</p>`;
   }
 }
 
-// Exit admin mode function
-function exitAdminMode() {
-  isAdmin = false;
-  hideAdminUI();
-  document.getElementById("is3DAvailable").checked = false;
-  // Reset radio buttons to default
-  const radios = document.querySelectorAll('input[name="mediaSource"]');
-  radios.forEach((radio) => {
-    if (radio.value === "default") {
-      radio.checked = true;
-    }
+async function searchMedia(type, tag, title, year) {
+  const response = await fetch(`${API_BASE}/api/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mediaType: type, tag: tag, title: title, year: parseInt(year) })
   });
-  alert("Exited admin mode");
-  update3DAvailableVisibility(getSelectedMediaType(), getSelectedTag());
+  if (!response.ok) throw new Error('Search failed');
+  return await response.json();
 }
 
-// Perform the search request, adjusting URL and payload based on admin options
-async function performSearch() {
-  const mediaType = getSelectedMediaType();
-  const tag = getSelectedTag();
-  const title = document.getElementById("title").value.trim();
-  const year = parseInt(document.getElementById("year").value, 10);
+form.addEventListener('submit', async function (e) {
+  e.preventDefault();
 
-  if (!title || !year || isNaN(year)) {
-    alert("Please enter a valid title and year.");
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Searching...";
+
+  resultsDiv.innerHTML = `
+    <p>Searching, please wait...</p>
+    <div class="spinner" style="margin: 10px auto;"></div>
+  `;
+
+  if (!API_BASE) {
+    resultsDiv.innerHTML = `<p style="color: #e74c3c;">API not loaded yet. Try again in a moment.</p>`;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
     return;
   }
 
-  const use3D = isAdmin && document.getElementById("is3DAvailable").checked;
-  const mediaSourceRadio = document.querySelector('input[name="mediaSource"]:checked');
-  const mediaSource = mediaSourceRadio ? mediaSourceRadio.value : "default";
+  const type = document.querySelector('input[name="mediaType"]:checked').value;
+  const tag = tagSelect.value;
+  const title = document.getElementById('title').value.trim();
+  const year = document.getElementById('year').value.trim();
 
-  // Determine which backend URL to use based on admin options
-  let apiUrl = `${API_BASE}/api/search`;
-  let searchPayload = { mediaType, tag, title, year };
-
-  // Modify tag and mediaType for 3D Radarr or Whisparr-v3
-  if (isAdmin) {
-    if (mediaSource === "whisparr-v3") {
-      // Use tag 'xmovie' or same mediaType but route could be different in backend later
-      searchPayload.mediaType = mediaType; // keep as is
-      searchPayload.tag = "xmovie"; // or another tag your backend recognizes (adjust backend accordingly)
-    } else if (use3D && mediaType === "movie" && tag === "movies") {
-      // Switch tag or flag to indicate radarr-3d backend usage
-      searchPayload.tag = "movies"; // keep tag same, backend will check 3D flag via other means
-      searchPayload.is3D = true; // you may want to add this field for backend to know to use radarr-3d
-    }
+  if (!type || !tag || !title || !year) {
+    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Please fill out all fields.</p>`;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    return;
   }
 
   try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(searchPayload),
-    });
+    const results = await searchMedia(type, tag, title, year);
+    if (results.length === 0) {
+      resultsDiv.innerHTML = `<p>No results found for "${title} (${year})"</p>`;
+    } else {
+      resultsDiv.innerHTML = '<h2>Select a Match</h2>';
 
-    if (!response.ok) {
-      const err = await response.json();
-      alert(`Search failed: ${err.detail || "Unknown error"}`);
-      return;
+      results.slice(0, 5).forEach(item => {
+        const div = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.textContent = 'Add This';
+        btn.addEventListener('click', () => addMediaItem(item, type, tag, year));
+
+        const posterUrl = (item.images && item.images.length > 0)
+          ? item.images.find(img => img.coverType === "poster")?.remoteUrl || item.images[0].remoteUrl
+          : 'https://via.placeholder.com/120x180?text=No+Image';
+
+        div.innerHTML = `
+          <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
+          <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
+          <p>${item.overview || 'No description available.'}</p>
+        `;
+        div.appendChild(btn);
+        resultsDiv.appendChild(div);
+      });
     }
+  } catch (err) {
+    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Error: ${err.message}</p>`;
+  }
 
-    const results = await response.json();
-    displayResults(results);
-  } catch (error) {
-    alert("Failed to perform search");
-    console.error(error);
+  submitBtn.disabled = false;
+  submitBtn.textContent = originalText;
+});
+
+// Load config before anything else
+async function loadConfig() {
+  try {
+    const response = await fetch('config.json');
+    const config = await response.json();
+    API_BASE = config.apiUrl;
+    console.log("Loaded API URL:", API_BASE);
+  } catch (err) {
+    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Failed to load configuration.</p>`;
+    throw err;
   }
 }
 
-// Display results function (adjust to your UI)
-function displayResults(results) {
-  const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "";
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+});
 
-  if (!results || results.length === 0) {
-    resultsDiv.textContent = "No results found.";
-    return;
-  }
+// Admin Login with modal + backend check
+async function adminLoginPrompt() {
+  const modal = document.getElementById("passwordModal");
+  const input = document.getElementById("adminPassword");
+  const submitBtn = document.getElementById("passwordSubmit");
+  const cancelBtn = document.getElementById("passwordCancel");
 
-  const ul = document.createElement("ul");
-  results.forEach((item) => {
-    const li = document.createElement("li");
-    li.textContent = `${item.title} (${item.year || item.firstAired || "N/A"})`;
-    ul.appendChild(li);
+  modal.classList.remove("hidden");
+  input.value = "";
+  input.focus();
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      modal.classList.add("hidden");
+      submitBtn.removeEventListener("click", onSubmit);
+      cancelBtn.removeEventListener("click", onCancel);
+    };
+
+    const onSubmit = async () => {
+      const password = input.value;
+      cleanup();
+
+      if (!password) {
+        resolve(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          alert("Welcome admin! Admin features unlocked.");
+          document.getElementById("admin-controls")?.classList.remove("hidden");
+          resolve(true);
+        } else {
+          alert("Incorrect password.");
+          resolve(false);
+        }
+      } catch (err) {
+        alert("Login failed: " + err.message);
+        resolve(false);
+      }
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    submitBtn.addEventListener("click", onSubmit);
+    cancelBtn.addEventListener("click", onCancel);
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onSubmit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
+    });
   });
-  resultsDiv.appendChild(ul);
 }
-
-// Event listeners to update 3D checkbox visibility on mediaType or tag change
-document.getElementById("mediaType").addEventListener("change", () => {
-  update3DAvailableVisibility(getSelectedMediaType(), getSelectedTag());
-});
-document.getElementById("tag").addEventListener("change", () => {
-  update3DAvailableVisibility(getSelectedMediaType(), getSelectedTag());
-});
