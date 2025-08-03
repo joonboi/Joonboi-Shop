@@ -1,6 +1,9 @@
 const CACHE_NAME = 'joonboi-plex-cache-v1';
 const urlsToCache = [
   '/joonboi-plex-requester/',
+  '/joonboi-plex-requester/config.json',
+  '/joonboi-plex-requester/style.css',
+  '/joonboi-plex-requester/script.js',
   '/joonboi-plex-requester/index.html',
   '/joonboi-plex-requester/manifest.json',
   '/joonboi-plex-requester/icons/icon-192.png',
