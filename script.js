@@ -62,6 +62,8 @@ function hideAdminElements() {
 
 function update3DVisibility() {
   const d3CheckboxContainer = document.getElementById('3d-container');
+  if (!d3CheckboxContainer) return;  // <--- Null check added here to avoid errors
+  
   const tagSelect = document.getElementById('tag');
   const type = document.querySelector('input[name="mediaType"]:checked').value;
   const tag = tagSelect.value;
@@ -290,7 +292,4 @@ async function adminLoginPrompt() {
 
 // Exit Admin Mode function
 function exitAdminMode() {
-  isAdmin = false;
-  hideAdminElements();
-  alert("Exited admin mode.");
-}
+  isAdmin
