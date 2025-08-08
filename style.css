@@ -88,16 +88,17 @@ button:hover {
 
 /* Spinner animation for loading state */
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #2ecc71; /* Matches your green theme */
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
+  background: url('https://cdn1.iconfinder.com/data/icons/roundettes-for-os-x-vol-vi/512/Plex-01-1024.png') no-repeat center center;
+  background-size: contain;
   animation: spin 1s linear infinite;
-  margin: 20px auto; /* Center horizontally with margin */
+  margin: 20px auto;
 }
+
 
 @keyframes spin {
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+
 }
