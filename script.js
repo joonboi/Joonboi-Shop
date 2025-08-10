@@ -1,10 +1,18 @@
-let API_BASE = ""; // Will be loaded from config.json
+let API_BASE = ""; // loaded from config.json at startup
+let currentPinId = null;
+let plexAuthToken = null;
+let pollInterval = null;
 
-const tagSelect = document.getElementById('tag');
+const loginBtn = document.getElementById("login-plex-btn");
+const authMessage = document.getElementById("auth-message");
+const authSection = document.getElementById("auth-section");
+
+const form = document.getElementById("request-form");
+const resultsDiv = document.getElementById("results");
+const messageDiv = document.getElementById("message");
+
+const tagSelect = document.getElementById("tag");
 const mediaRadios = document.querySelectorAll('input[name="mediaType"]');
-const resultsDiv = document.getElementById('results');
-const messageDiv = document.getElementById('message');
-const form = document.getElementById('request-form');
 const submitBtn = form.querySelector('button[type="submit"]');
 
 const tagOptions = {
@@ -25,18 +33,105 @@ function updateTagOptions() {
   const selected = document.querySelector('input[name="mediaType"]:checked').value;
   tagSelect.innerHTML = '<option value="">-- Choose a tag --</option>';
   tagOptions[selected].forEach(tag => {
-    const option = document.createElement('option');
-    option.value = tag.value;
-    option.textContent = tag.label;
-    tagSelect.appendChild(option);
+    const opt = document.createElement('option');
+    opt.value = tag.value;
+    opt.textContent = tag.label;
+    tagSelect.appendChild(opt);
   });
 }
-
-mediaRadios.forEach(radio => {
-  radio.addEventListener('change', updateTagOptions);
-});
-
+mediaRadios.forEach(r => r.addEventListener('change', updateTagOptions));
 updateTagOptions();
+
+async function createPin() {
+  const resp = await fetch(`${API_BASE}/plex/create_pin`);
+  if (!resp.ok) throw new Error("Failed to create PIN");
+  return resp.json(); // { id, code, auth_url }
+}
+
+async function checkPin(pinId) {
+  const resp = await fetch(`${API_BASE}/plex/check_pin/${pinId}`);
+  if (!resp.ok) throw new Error("Failed to check pin status");
+  return resp.json(); // { authenticated: bool, token: string|null }
+}
+
+async function verifyAccessWithBackend(token) {
+  const resp = await fetch(`${API_BASE}/plex/verify_access`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token })
+  });
+  if (!resp.ok) {
+    // attempt to show backend-provided message
+    const txt = await resp.text().catch(()=>null);
+    throw new Error(txt || "Failed to verify access");
+  }
+  return resp.json(); // { access: true/false }
+}
+
+async function startLoginFlow() {
+  authMessage.textContent = "Creating PIN...";
+  loginBtn.disabled = true;
+
+  try {
+    const pinData = await createPin();
+    currentPinId = pinData.id;
+
+    // Open Plex auth page in a new tab (user triggers popup -> not blocked)
+    window.open(pinData.auth_url, "_blank");
+
+    authMessage.textContent = "Plex login opened in a new tab. Please authorize the app there.";
+    loginBtn.textContent = "Waiting for authorization...";
+
+    pollInterval = setInterval(async () => {
+      try {
+        const status = await checkPin(currentPinId);
+        if (status.authenticated) {
+          clearInterval(pollInterval);
+          plexAuthToken = status.token;
+          authMessage.textContent = "Authorized. Verifying server access...";
+          // ask backend if this token has access to your server
+          const acc = await verifyAccessWithBackend(plexAuthToken);
+          if (acc.access === true) {
+            // show requester UI
+            authSection.style.display = "none";
+            form.style.display = "flex";
+            messageDiv.textContent = "Logged in and authorized. You can make requests.";
+          } else {
+            authMessage.textContent = "You do NOT have access to this Plex server.";
+            loginBtn.disabled = false;
+            loginBtn.textContent = "Login with Plex";
+          }
+        } else {
+          authMessage.textContent = "Waiting for authorization...";
+        }
+      } catch (err) {
+        clearInterval(pollInterval);
+        authMessage.textContent = `Error during auth: ${err.message}`;
+        loginBtn.disabled = false;
+        loginBtn.textContent = "Login with Plex";
+      }
+    }, 3000);
+
+  } catch (err) {
+    authMessage.textContent = `Login error: ${err.message}`;
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Login with Plex";
+  }
+}
+
+loginBtn.addEventListener('click', startLoginFlow);
+
+// --- Existing search/add functionality (unchanged) ---
+
+async function searchMedia(type, tag, title, year) {
+  const response = await fetch(`${API_BASE}/api/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mediaType: type, tag: tag, title: title, year: parseInt(year) })
+  });
+  if (!response.ok) throw new Error('Search failed');
+  return await response.json();
+}
 
 async function addMediaItem(item, type, tag, year) {
   messageDiv.textContent = "";
@@ -54,37 +149,23 @@ async function addMediaItem(item, type, tag, year) {
     if (response.ok) {
       resultsDiv.innerHTML = `<p style="color: #2ecc71; font-weight: bold;">${data.message}</p>`;
     } else {
-      resultsDiv.innerHTML = `<p style="color: #e74c3c; font-weight: bold;">Error: ${data.message || 'Failed to add item.'}</p>`;
+      resultsDiv.innerHTML = `<p style="color: #e74c3c; font-weight: bold;">Error: ${data.detail || data.message || 'Failed to add item.'}</p>`;
     }
   } catch (err) {
     resultsDiv.innerHTML = `<p style="color: #e74c3c; font-weight: bold;">Error: ${err.message}</p>`;
   }
 }
 
-async function searchMedia(type, tag, title, year) {
-  const response = await fetch(`${API_BASE}/api/search`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mediaType: type, tag: tag, title: title, year: parseInt(year) })
-  });
-  if (!response.ok) throw new Error('Search failed');
-  return await response.json();
-}
-
 form.addEventListener('submit', async function (e) {
   e.preventDefault();
-
-  const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
+  const originalText = submitBtn.textContent;
   submitBtn.textContent = "Searching...";
 
-  resultsDiv.innerHTML = `
-    <p>Searching, please wait...</p>
-    <div class="spinner" style="margin: 10px auto;"></div>
-  `;
+  resultsDiv.innerHTML = `<p>Searching, please wait...</p><div class="spinner" style="margin:10px auto;"></div>`;
 
   if (!API_BASE) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">API not loaded yet. Try again in a moment.</p>`;
+    resultsDiv.innerHTML = `<p style="color:#e74c3c;">API not loaded yet. Try again in a moment.</p>`;
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
     return;
@@ -96,7 +177,7 @@ form.addEventListener('submit', async function (e) {
   const year = document.getElementById('year').value.trim();
 
   if (!type || !tag || !title || !year) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Please fill out all fields.</p>`;
+    resultsDiv.innerHTML = `<p style="color:#e74c3c;">Please fill out all fields.</p>`;
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;
     return;
@@ -104,12 +185,11 @@ form.addEventListener('submit', async function (e) {
 
   try {
     const results = await searchMedia(type, tag, title, year);
-    if (results.length === 0) {
+    if (!Array.isArray(results) || results.length === 0) {
       resultsDiv.innerHTML = `<p>No results found for "${title} (${year})"</p>`;
     } else {
       resultsDiv.innerHTML = '<h2>Select a Match</h2>';
-
-      results.slice(0, 5).forEach(item => {
+      results.slice(0,5).forEach(item => {
         const div = document.createElement('div');
         const btn = document.createElement('button');
         btn.textContent = 'Add This';
@@ -121,7 +201,7 @@ form.addEventListener('submit', async function (e) {
 
         div.innerHTML = `
           <p><strong>${item.title}</strong> (${item.year || 'N/A'})</p>
-          <img src="${posterUrl}" alt="Poster" style="width: 120px; height: auto; margin-bottom: 8px; display: block;">
+          <img src="${posterUrl}" alt="Poster" style="width:120px;height:auto;margin-bottom:8px;display:block;">
           <p>${item.overview || 'No description available.'}</p>
         `;
         div.appendChild(btn);
@@ -129,22 +209,22 @@ form.addEventListener('submit', async function (e) {
       });
     }
   } catch (err) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Error: ${err.message}</p>`;
+    resultsDiv.innerHTML = `<p style="color:#e74c3c;">Error: ${err.message}</p>`;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
-
-  submitBtn.disabled = false;
-  submitBtn.textContent = originalText;
 });
 
-// Load config before anything else
+// Load config.json to set API_BASE (cloudflared tunnel url)
 async function loadConfig() {
   try {
-    const response = await fetch('config.json');
-    const config = await response.json();
-    API_BASE = config.apiUrl;
-    console.log("Loaded API URL:", API_BASE);
+    const resp = await fetch('config.json');
+    const cfg = await resp.json();
+    API_BASE = cfg.apiUrl.replace(/\/$/, ''); // remove trailing slash if any
+    console.log("Loaded API_BASE:", API_BASE);
   } catch (err) {
-    resultsDiv.innerHTML = `<p style="color: #e74c3c;">Failed to load configuration.</p>`;
+    resultsDiv.innerHTML = `<p style="color:#e74c3c;">Failed to load configuration: ${err.message}</p>`;
     throw err;
   }
 }

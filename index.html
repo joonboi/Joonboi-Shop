@@ -4,7 +4,56 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joonboi Plex Requester</title><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Joonboi Plex Requester</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <img src="https://cdn1.iconfinder.com/data/icons/roundettes-for-os-x-vol-vi/512/Plex-01-1024.png" alt="Plex Logo" class="logo">
+
+    <h1>Joonboi Plex Requester</h1>
+
+    <!-- AUTH SECTION -->
+    <div id="auth-section">
+      <button id="login-plex-btn">Login with Plex</button>
+      <p id="auth-message" style="color:#f39c12; font-weight:bold; margin-top:10px;"></p>
+    </div>
+
+    <!-- REQUEST FORM (hidden until authorized) -->
+    <form id="request-form" style="display:none;">
+      <div class="radio-group">
+        <label><input type="radio" name="mediaType" value="movie" checked> Movie</label>
+        <label><input type="radio" name="mediaType" value="tv"> TV Show</label>
+      </div>
+
+      <label for="tag">Select Tag:</label>
+      <select id="tag" required>
+        <option value="">-- Choose a tag --</option>
+      </select>
+
+      <label for="title">Title:</label>
+      <input type="text" id="title" placeholder="e.g. Absolute Power" required>
+
+      <label for="year">Year:</label>
+      <input type="number" id="year" placeholder="e.g. 1997" required>
+
+      <button type="submit">Search</button>
+    </form>
+
+    <div id="results"></div>
+  </div>
+
+  <div id="message" style="margin-top:10px; color:#2ecc71; font-weight:bold;"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
