@@ -102,3 +102,27 @@ button:hover {
   100% { transform: rotate(360deg); }
 
 }
+
+#auth-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  text-align: center;
+}
+
+#login-plex-btn {
+  background-color: #E53E00; /* Plex Orange */
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1.2em;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+#login-plex-btn:hover {
+  background-color: #bf3600; /* Darker orange on hover */
+}
