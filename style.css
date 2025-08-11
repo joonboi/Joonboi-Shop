@@ -113,7 +113,7 @@ button:hover {
 }
 
 #login-plex-btn {
-  background-color: #E53E00; /* Plex Orange */
+  background-color: #e5b14c; /* Plex Orange */
   color: white;
   border: none;
   padding: 12px 24px;
@@ -126,3 +126,4 @@ button:hover {
 #login-plex-btn:hover {
   background-color: #bf3600; /* Darker orange on hover */
 }
+
