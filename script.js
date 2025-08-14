@@ -5,7 +5,7 @@ let pollInterval = null;
 async function loadConfig() {
   const res = await fetch("config.json");
   const cfg = await res.json();
-  backendUrl = cfg.backend_url;
+  backendUrl = cfg.apiUrl;
 }
 
 async function checkLoggedIn() {
