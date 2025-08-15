@@ -1,6 +1,7 @@
-let backendUrl = ""; // will be loaded from config.json
+let backendUrl = ""; // Loaded from config.json
 let sessionId = localStorage.getItem("sessionId") || null;
 let pollInterval = null;
+let isAdmin = false; // Will set based on server ownership
 
 async function loadConfig() {
   const res = await fetch("config.json");
@@ -16,7 +17,7 @@ async function checkLoggedIn() {
     });
     if (!res.ok) throw new Error("Not logged in");
     const data = await res.json();
-    showUser(data.username, data.is_owner);
+    showUser(data.username, data.is_owner || false);
     return true;
   } catch {
     localStorage.removeItem("sessionId");
@@ -25,28 +26,29 @@ async function checkLoggedIn() {
   }
 }
 
-function showUser(username, isAdmin=false) {
+function showUser(username, owner=false) {
   document.getElementById("login-section").style.display = "none";
   document.getElementById("user-section").style.display = "block";
   document.getElementById("username").textContent = username;
-  document.getElementById("media-section").style.display = "block";
+  isAdmin = owner;
 
+  // Show admin-only radio buttons if owner
   document.querySelectorAll(".admin-only").forEach(el => {
-    el.style.display = isAdmin ? "inline-block" : "none";
+    el.style.display = owner ? "inline" : "none";
   });
 }
 
 function showLogin() {
   document.getElementById("login-section").style.display = "block";
   document.getElementById("user-section").style.display = "none";
-  document.getElementById("media-section").style.display = "none";
 }
 
+// ====== Plex Login ======
 async function startPlexLogin() {
   document.getElementById("status").textContent = "Connecting to Plex...";
   const res = await fetch(`${backendUrl}/plex/create_pin`);
   const data = await res.json();
-  
+
   window.open(data.auth_url, "_blank");
 
   pollInterval = setInterval(async () => {
@@ -56,7 +58,7 @@ async function startPlexLogin() {
       clearInterval(pollInterval);
       sessionId = checkData.session_id;
       localStorage.setItem("sessionId", sessionId);
-      showUser(checkData.username, checkData.is_owner);
+      showUser(checkData.username, checkData.is_owner || false);
       document.getElementById("status").textContent = "Login successful!";
     } else if (checkData.error) {
       clearInterval(pollInterval);
@@ -75,73 +77,72 @@ async function logout() {
   document.getElementById("status").textContent = "Logged out.";
 }
 
-// Media Request Elements
-const mediaSection = document.getElementById("media-section");
-const mediaType = document.getElementById("media-type");
-const moviesOptions = document.getElementById("movies-options");
-const tvOptions = document.getElementById("tv-options");
-const searchBtn = document.getElementById("search-btn");
-const searchResults = document.getElementById("search-results");
+// ====== Media Selection Hierarchy ======
+const categoryRadios = document.querySelectorAll('input[name="category"]');
+const typeSection = document.getElementById("type-section");
+const typeDropdown = document.getElementById("type-dropdown");
+const extraSection = document.getElementById("extra-section");
+const moviesExtra = document.getElementById("movies-extra");
+const tvExtra = document.getElementById("tv-extra");
 
-mediaType.addEventListener("change", () => {
-  const val = mediaType.value;
-  moviesOptions.style.display = val === "movies" ? "block" : "none";
-  tvOptions.style.display = val === "tvshow" ? "block" : "none";
+const typeOptions = {
+  movies: ["Movies", "Concerts", "Bootlegs", "Anime", "Adult"],
+  tvshow: ["TV Show", "Anime", "Kids"]
+};
+
+categoryRadios.forEach(radio => {
+  radio.addEventListener("change", () => {
+    const cat = radio.value;
+    extraSection.style.display = "none";
+
+    if(cat.startsWith("x-")){
+      typeSection.style.display = "none";
+      return;
+    }
+
+    typeDropdown.innerHTML = '<option value="" disabled selected>Select type</option>';
+    typeOptions[cat].forEach(opt => {
+      const el = document.createElement("option");
+      el.value = opt.toLowerCase().replace(/\s+/g, "-");
+      el.textContent = opt;
+      typeDropdown.appendChild(el);
+    });
+
+    typeSection.style.display = "block";
+  });
 });
 
-searchBtn.addEventListener("click", async () => {
-  const type = mediaType.value;
+typeDropdown.addEventListener("change", () => {
+  const cat = document.querySelector('input[name="category"]:checked')?.value;
+  const type = typeDropdown.value;
+
+  moviesExtra.style.display = (cat==="movies" && type==="movies") ? "block" : "none";
+  tvExtra.style.display = (cat==="tvshow" && type==="tv-show") ? "block" : "none";
+  extraSection.style.display = (moviesExtra.style.display==="block" || tvExtra.style.display==="block") ? "block" : "none";
+});
+
+// ====== ARR Search Button Placeholder ======
+document.getElementById("search-btn").addEventListener("click", () => {
+  const cat = document.querySelector('input[name="category"]:checked')?.value;
+  const type = typeDropdown.value;
   const title = document.getElementById("media-title").value;
   const year = document.getElementById("media-year").value;
-  const extra = document.querySelector('input[name="movies-extra"]:checked')?.value || "none";
-  const spanish = document.getElementById("tv-spanish").checked;
+  const extraMovies = document.querySelector('input[name="movies-extra"]:checked')?.value;
+  const tvSpanish = document.getElementById("tv-spanish").checked;
 
-  if(!type || !title) {
-    searchResults.textContent = "Please select type and enter a title.";
-    return;
-  }
+  const result = {
+    category: cat,
+    type: type,
+    title: title,
+    year: year,
+    extraMovies: extraMovies,
+    tvSpanish: tvSpanish
+  };
 
-  searchResults.textContent = "Searching...";
-  try {
-    const res = await fetch(`${backendUrl}/arr/search`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${sessionId}`
-      },
-      body: JSON.stringify({ type, title, year, extra, spanish })
-    });
-    const data = await res.json();
-    if(data.error){
-      searchResults.textContent = data.error;
-    } else if(data.alreadyAdded){
-      searchResults.textContent = `Already added: ${data.message}`;
-    } else {
-      searchResults.innerHTML = `
-        Found: ${data.message}<br/>
-        <button id="add-btn">Add</button>
-        <button id="decline-btn">Decline</button>
-      `;
-      document.getElementById("add-btn").addEventListener("click", async () => {
-        await fetch(`${backendUrl}/arr/add`, {
-          method:"POST",
-          headers: { 
-            "Content-Type":"application/json",
-            "Authorization": `Bearer ${sessionId}`
-          },
-          body: JSON.stringify({ type, title, year, extra, spanish })
-        });
-        searchResults.textContent = "Add request sent!";
-      });
-      document.getElementById("decline-btn").addEventListener("click", () => {
-        searchResults.textContent = "Declined.";
-      });
-    }
-  } catch(e) {
-    searchResults.textContent = "Error searching: " + e.message;
-  }
+  document.getElementById("search-results").textContent = JSON.stringify(result, null, 2);
 });
 
+// ====== DOMContentLoaded ======
 document.addEventListener("DOMContentLoaded", async () => {
   await loadConfig();
   const loggedIn = await checkLoggedIn();
