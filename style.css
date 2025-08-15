@@ -1,3 +1,13 @@
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+* {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 body {
   font-family: Arial, sans-serif;
   background: #1c1c1c;
@@ -30,5 +40,6 @@ button:hover {
 }
 
 #user-section {
+  display: none; /* moved from inline style */
   margin-top: 2rem;
 }

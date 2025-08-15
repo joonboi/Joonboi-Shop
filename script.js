@@ -1,4 +1,4 @@
-let backendUrl = ""; // loaded from config.json
+let backendUrl = ""; // will be loaded from config.json
 let sessionId = localStorage.getItem("sessionId") || null;
 let pollInterval = null;
 
@@ -40,22 +40,12 @@ async function startPlexLogin() {
   document.getElementById("status").textContent = "Connecting to Plex...";
   const res = await fetch(`${backendUrl}/plex/create_pin`);
   const data = await res.json();
-
-  // Open Plex auth popup
+  
   window.open(data.auth_url, "_blank");
 
-  // Poll for authentication with 5-minute timeout
-  const startTime = Date.now();
   pollInterval = setInterval(async () => {
-    if (Date.now() - startTime > 5 * 60 * 1000) { // 5 minutes
-      clearInterval(pollInterval);
-      document.getElementById("status").textContent = "Login timed out. Please try again.";
-      return;
-    }
-
     const checkRes = await fetch(`${backendUrl}/plex/check_pin/${data.id}`);
     const checkData = await checkRes.json();
-
     if (checkData.authenticated) {
       clearInterval(pollInterval);
       sessionId = checkData.session_id;
@@ -63,6 +53,7 @@ async function startPlexLogin() {
       showUser(checkData.username);
       document.getElementById("status").textContent = "Login successful!";
     } else if (checkData.error) {
+      clearInterval(pollInterval);
       document.getElementById("status").textContent = checkData.error;
     }
   }, 3000);
