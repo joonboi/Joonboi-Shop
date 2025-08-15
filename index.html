@@ -3,22 +3,65 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Plex Requester - Login Test</title>
+  <title>Plex Requester</title>
   <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="stylesheet" href="style.css?v=1" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
   <div id="app">
     <h1>Plex Requester</h1>
+
     <div id="login-section">
       <button id="login-btn">Login with Plex</button>
     </div>
+
     <div id="status"></div>
+
     <div id="user-section">
       <p>Welcome, <span id="username"></span>!</p>
       <button id="logout-btn">Logout</button>
     </div>
+
+    <!-- Media Request Section -->
+    <div id="media-section" style="display:none; margin-top:2rem;">
+      <h2>Request Media</h2>
+      
+      <label for="media-type">Type:</label>
+      <select id="media-type">
+        <option value="" disabled selected>Select type</option>
+        <option value="movies">Movies</option>
+        <option value="concerts">Concerts</option>
+        <option value="bootlegs">Bootlegs</option>
+        <option value="anime">Anime</option>
+        <option value="adult" class="admin-only">Adult</option>
+        <option value="tvshow">TV Show</option>
+        <option value="tv-anime">TV Anime</option>
+        <option value="kids">Kids</option>
+      </select>
+
+      <div id="movies-options" style="display:none; margin-top:0.5rem;">
+        <label>Extra Options:</label><br/>
+        <input type="radio" name="movies-extra" value="none" checked> None
+        <input type="radio" name="movies-extra" value="3d"> 3D
+        <input type="radio" name="movies-extra" value="foreign"> Foreign
+      </div>
+
+      <div id="tv-options" style="display:none; margin-top:0.5rem;">
+        <label>
+          <input type="checkbox" id="tv-spanish"> Spanish Original
+        </label>
+      </div>
+
+      <div style="margin-top:0.5rem;">
+        <input type="text" id="media-title" placeholder="Title" required />
+        <input type="number" id="media-year" placeholder="Year (optional)" />
+      </div>
+
+      <button id="search-btn">Search</button>
+      <div id="search-results" style="margin-top:1rem;"></div>
+    </div>
+
   </div>
-  <script src="script.js?v=1"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>

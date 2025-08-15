@@ -40,6 +40,11 @@ button:hover {
 }
 
 #user-section {
-  display: none; /* moved from inline style */
+  display: none;
   margin-top: 2rem;
+}
+
+/* Admin-only options hidden by default */
+.admin-only {
+  display: none;
 }
