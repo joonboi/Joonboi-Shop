@@ -1,5 +1,9 @@
 {
-  "Games": "https://venue-threatening-yards-treasures.trycloudflare.com/Games/",
-  "DLC": "https://venue-threatening-yards-treasures.trycloudflare.com/DLC/",
-  "Updates": "https://venue-threatening-yards-treasures.trycloudflare.com/Updates/"
+  "locations": [
+    {
+      "url": "https://sip-mold-souls-correctly.trycloudflare.com",
+      "title": "Joonboi Switch Shop",
+      "action": "add"
+    }
+  ]
 }
