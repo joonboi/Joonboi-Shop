@@ -1,7 +1,8 @@
 {
   "locations": [
     {
-      "url": "https://fired-overview-sections-islamic.trycloudflare.com:8465",
+      "url": "https://stability-psp-marco-protest.trycloudflare.com",
+      "port": "8465",
       "title": "Joonboi Switch Shop",
       "action": "add"
     }
